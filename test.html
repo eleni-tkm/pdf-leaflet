@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Digital Leaflet</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" integrity="sha512-1ycn6IcaQQ40/MKBW2W4Rhis/DbILU74C1vSrLJxCq57o941Ym01SwNsOMqvEBFlcgUa6xLiPY/NS5R+E6ztJQ==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+<div class="max-w-4xl mx-auto py-10 px-4">
+      <!-- <div class="max-w-6xl mx-auto py-10 px-4"></div>-->
+  <h1 class="text-3xl font-bold text-center mb-6">Digital leafelt - master sample</h1>
+
+  <div class="bg-white shadow-lg rounded-lg p-4">
+    
+    <!-- Scrollable container to hold zoomable canvas -->
+    <div class="w-full h-[70vh] overflow-auto border rounded mb-4">
+      <canvas id="pdf-render"></canvas>
+    </div>
+
+    <!-- Controls stay fixed below -->
+    <div class="flex flex-wrap justify-center gap-4">
+      <button id="prev-page" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"><i class="fas fa-arrow-left"></i></button>
+      <button id="next-page" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"><i class="fas fa-arrow-right"></i></button>
+      <button id="zoom-in" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"><i class="fas fa-search-plus"></i></button>
+      <button id="zoom-out" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"><i class="fas fa-search-minus"></i></button>
+      <button id="reset-zoom" class="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600"><i class="far fa-window-restore"></i></button>
+
+    </div>
+
+    <p class="mt-4 text-sm text-gray-600 text-center">Page <span id="page-num"></span> / <span id="page-count"></span></p>
+  </div>
+</div>
+
+
+  <!-- PDF.js library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+  <script>
+    
+    const url = 'pdf/GRI-2021-32599-small.pdf';
+
+
+    let pdfDoc = null,
+        pageNum = 1,
+        scale = 1.35,
+        pageIsRendering = false,
+        pageNumIsPending = null;
+
+    const canvas = document.getElementById('pdf-render');
+    const ctx = canvas.getContext('2d');
+
+    function renderPage(num) {
+      pageIsRendering = true;
+
+      pdfDoc.getPage(num).then(page => {
+        const viewport = page.getViewport({ scale });
+
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+
+        const renderCtx = {
+          canvasContext: ctx,
+          viewport
+        };
+
+        page.render(renderCtx).promise.then(() => {
+          pageIsRendering = false;
+          if (pageNumIsPending !== null) {
+            renderPage(pageNumIsPending);
+            pageNumIsPending = null;
+          }
+        });
+
+        document.getElementById('page-num').textContent = num;
+      });
+    }
+
+    function queueRenderPage(num) {
+      if (pageIsRendering) {
+        pageNumIsPending = num;
+      } else {
+        renderPage(num);
+      }
+    }
+
+    function onPrevPage() {
+      if (pageNum <= 1) return;
+      pageNum--;
+      queueRenderPage(pageNum);
+    }
+
+    function onNextPage() {
+      if (pageNum >= pdfDoc.numPages) return;
+      pageNum++;
+      queueRenderPage(pageNum);
+    }
+
+
+
+    document.getElementById('prev-page').addEventListener('click', onPrevPage);
+    document.getElementById('next-page').addEventListener('click', onNextPage);
+
+    // Zoom controls
+document.getElementById('zoom-in').addEventListener('click', () => {
+  scale = Math.min(scale + 0.25, 5); // max 5x zoom
+  queueRenderPage(pageNum);
+});
+
+document.getElementById('zoom-out').addEventListener('click', () => {
+  scale = Math.max(scale - 0.25, 0.7); // min 0.5x zoom
+  queueRenderPage(pageNum);
+});
+
+document.getElementById('reset-zoom').addEventListener('click', () => {
+  scale = 1.35;
+  queueRenderPage(pageNum);
+});
+
+
+
+    pdfjsLib.getDocument(url).promise.then(pdfDoc_ => {
+      pdfDoc = pdfDoc_;
+      document.getElementById('page-count').textContent = pdfDoc.numPages;
+      renderPage(pageNum);
+    }).catch(err => {
+      console.error('Error loading PDF:', err);
+      alert('Could not load the PDF.');
+    });
+  </script>
+
+</body>
+</html>
